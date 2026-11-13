@@ -1,0 +1,262 @@
+import { FontAwesome } from '@expo/vector-icons';
+import { useRef, useState } from 'react';
+import {
+  Animated,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { colors, fonts, radius, shadows, spacing } from '../src/constants/theme';
+import { AvatarPaseador } from './AvatarPaseador';
+import { Paseador } from '../src/types/paseador';
+
+// ============================================================================
+// COMPONENTE: PaseadorCard
+// Propósito: Tarjeta individual para mostrar el resumen de un paseador en las
+// listas de búsqueda. Jerarquiza nombre, ubicación, calificación y precio, y
+// muestra la disponibilidad como badge sobre la foto. Incorpora una elevación
+// suave al hacer hover en web.
+// ============================================================================
+
+
+type Props = {
+  paseador: Paseador; // Objeto con todos los datos del paseador
+  onPress: () => void; // Función al tocar o hacer clic en la tarjeta (navegación)
+};
+
+export function PaseadorCard({ paseador, onPress }: Props) {
+  // Estado local para rastrear si el cursor (ratón) está sobre la tarjeta (solo web)
+  const [isHovered, setIsHovered] = useState(false);
+  // Escala al presionar: la tarjeta "se hunde" levemente al tocarla.
+  const escala = useRef(new Animated.Value(1)).current;
+  const nombreCompleto = `${paseador.nombre} ${paseador.apellido}`;
+
+  const animarEscala = (valor: number) =>
+    Animated.spring(escala, {
+      toValue: valor,
+      speed: 40,
+      bounciness: 6,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+
+  return (
+    <Animated.View style={[styles.animado, { transform: [{ scale: escala }] }]}>
+    <TouchableOpacity
+      style={[styles.card, isHovered && styles.cardHovered]}
+      onPress={onPress}
+      onPressIn={() => animarEscala(0.97)}
+      onPressOut={() => animarEscala(1)}
+      activeOpacity={0.92}
+      accessibilityRole="button"
+      accessibilityLabel={`${nombreCompleto}, ${paseador.barrio}, ${paseador.ciudad}. ${
+        paseador.disponible ? 'Disponible hoy' : 'No disponible'
+      }. ${paseador.calificacion.toFixed(1)} estrellas, ${
+        paseador.cantidadResenas
+      } reseñas. $${paseador.precioHora} por hora.`}
+      accessibilityHint="Abre el perfil del paseador"
+      // Eventos de ratón inyectados para detectar hover en plataformas web
+      {...({
+        onMouseEnter: () => setIsHovered(true),
+        onMouseLeave: () => setIsHovered(false),
+      } as Record<string, unknown>)}
+    >
+      {/* 1. FOTO CON BADGE DE DISPONIBILIDAD */}
+      <View style={styles.fotoWrapper}>
+        <AvatarPaseador
+          foto={paseador.foto}
+          nombre={paseador.nombre}
+          apellido={paseador.apellido}
+          tamano={120}
+          relleno
+          style={styles.foto}
+        />
+        <View
+          style={[
+            styles.estadoBadge,
+            paseador.disponible ? styles.badgeDisponible : styles.badgeNoDisponible,
+          ]}
+        >
+          <View
+            style={[
+              styles.estadoDot,
+              paseador.disponible ? styles.dotDisponible : styles.dotNoDisponible,
+            ]}
+          />
+          <Text
+            style={[
+              styles.estadoTexto,
+              paseador.disponible ? styles.estadoDisp : styles.estadoNoDis,
+            ]}
+          >
+            {paseador.disponible ? 'Disponible hoy' : 'No disponible'}
+          </Text>
+        </View>
+      </View>
+
+      {/* 2. INFORMACIÓN */}
+      <View style={styles.info}>
+        {/* Nombre completo del paseador (máximo 2 líneas) */}
+        <Text style={styles.nombre} numberOfLines={2}>
+          <Text style={styles.nombrePrefijo}>Paseador </Text>
+          {paseador.nombre} {paseador.apellido}
+        </Text>
+
+        {/* Barrio y ciudad del paseador (hasta 2 líneas para no truncar la ciudad) */}
+        <View style={styles.barrioFila}>
+          <FontAwesome name="map-marker" size={13} color={colors.grisOscuro} style={styles.barrioIcono} />
+          <Text style={styles.barrio} numberOfLines={2}>
+            {paseador.barrio}, {paseador.ciudad}
+          </Text>
+        </View>
+
+        {/* Calificación en estrellas y cantidad total de reseñas */}
+        <View style={styles.calificacionFila}>
+          <FontAwesome name="star" size={13} color={colors.naranjaEstrella} />
+          <Text style={styles.estrellas}>{paseador.calificacion.toFixed(1)}</Text>
+          <Text style={styles.calificacionTexto}>({paseador.cantidadResenas})</Text>
+        </View>
+
+        {/* Precio por hora, formato moneda Argentina */}
+        <View style={styles.precioFila}>
+          <Text style={styles.precio}>
+            $ {paseador.precioHora.toLocaleString('es-AR')}
+          </Text>
+          <Text style={styles.precioUnidad}>/ hora</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  animado: {
+    flex: 1,
+  },
+  card: {
+    backgroundColor: colors.blanco,
+    borderRadius: radius.lg,
+    flexDirection: 'column',
+    flex: 1,
+    overflow: 'hidden',
+    ...shadows.card,
+    // Transición CSS suave al hacer hover (solo web)
+    ...(Platform.OS === 'web'
+      ? { transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease' }
+      : null),
+  } as any,
+  // Estilo aplicado dinámicamente cuando isHovered es true
+  cardHovered: {
+    ...shadows.elevada,
+    borderColor: colors.verdeMenta,
+    transform: [{ translateY: -3 }],
+  },
+  fotoWrapper: {
+    position: 'relative',
+  },
+  foto: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+  },
+  estadoBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    ...shadows.card,
+  },
+  badgeDisponible: {
+    backgroundColor: colors.blanco,
+  },
+  badgeNoDisponible: {
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+  },
+  estadoDot: {
+    width: 7,
+    height: 7,
+    borderRadius: radius.full,
+  },
+  dotDisponible: {
+    backgroundColor: colors.verde,
+  },
+  dotNoDisponible: {
+    backgroundColor: colors.grisMedio,
+  },
+  info: {
+    padding: spacing.md - 2,
+    gap: 5,
+  },
+  nombre: {
+    fontSize: fonts.sizes.md,
+    color: colors.negro,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  nombrePrefijo: {
+    color: colors.grisOscuro,
+    fontWeight: '600',
+  },
+  barrioFila: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  barrioIcono: {
+    marginTop: 2,
+  },
+  barrio: {
+    flex: 1,
+    fontSize: fonts.sizes.sm,
+    color: colors.grisOscuro,
+  },
+  calificacionFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  estrellas: {
+    fontSize: fonts.sizes.sm,
+    color: colors.naranjaTexto,
+    fontWeight: fonts.pesos.semi,
+  },
+  calificacionTexto: {
+    fontSize: fonts.sizes.xs,
+    color: colors.grisOscuro,
+  },
+  precioFila: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    marginTop: spacing.xs,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.grisClaro,
+  },
+  precio: {
+    fontSize: fonts.sizes.lg,
+    fontWeight: fonts.pesos.semi,
+    color: colors.verdeOscuro,
+  },
+  precioUnidad: {
+    fontSize: fonts.sizes.xs,
+    color: colors.grisOscuro,
+    fontWeight: '600',
+  },
+  estadoTexto: {
+    fontSize: fonts.sizes.xs,
+    fontWeight: '700',
+  },
+  estadoDisp: {
+    color: colors.verde,
+  },
+  estadoNoDis: {
+    color: colors.grisOscuro,
+  },
+});
